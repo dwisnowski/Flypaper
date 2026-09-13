@@ -11,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
-from app.opensky.client import OpenSkyClient
 from app.opensky.enrich import AircraftEnricher
 from app.routers.scan import router as scan_router
 from app.routers.weather import router as weather_router
@@ -28,7 +27,7 @@ logger = logging.getLogger("flypaper")
 async def lifespan(app: FastAPI):
     settings = get_settings()
     app.state.settings = settings
-    app.state.opensky = OpenSkyClient(settings)
+    # OpenSky client is built per request (browser headers or .env fallback).
     enricher = AircraftEnricher(settings)
     enricher.start_background_load()
     app.state.enricher = enricher

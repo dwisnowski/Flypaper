@@ -8,11 +8,13 @@ import CssBaseline from '@mui/material/CssBaseline'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { ThemeProvider } from '@mui/material/styles'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink, Outlet, useLocation } from 'react-router-dom'
 import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import { createAppTheme } from '../theme'
+import { OpenSkyCredentialsButton } from './OpenSkyCredentialsButton'
 import { QrAccessButton } from './QrAccessButton'
+import { fetchConfig } from '../api'
 import { ScanChromeProvider, useScanChrome } from './ScanChromeContext'
 
 function ShellBar() {
@@ -20,6 +22,13 @@ function ShellBar() {
   const location = useLocation()
   const { chrome } = useScanChrome()
   const credits = store.snapshot?.credits_remaining
+  const [serverConfigured, setServerConfigured] = useState(false)
+
+  useEffect(() => {
+    void fetchConfig()
+      .then((cfg) => setServerConfigured(Boolean(cfg.server_opensky_configured)))
+      .catch(() => setServerConfigured(false))
+  }, [])
 
   return (
     <AppBar position="sticky" color="transparent" elevation={0} sx={{ backdropFilter: 'blur(10px)' }}>
@@ -73,6 +82,7 @@ function ShellBar() {
             credits {credits == null ? '—' : credits.toLocaleString()}
           </Typography>
         )}
+        <OpenSkyCredentialsButton serverConfigured={serverConfigured} />
         <QrAccessButton />
       </Toolbar>
     </AppBar>

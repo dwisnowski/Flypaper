@@ -1,6 +1,20 @@
 import type { AppConfig, FlightPathResponse, Plane, ScanResponse } from './types'
+import { loadOpenSkyCredentials } from './openskyCredentials'
 
 const jsonHeaders = { 'Content-Type': 'application/json' }
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  const headers: Record<string, string> = {
+    ...(extra as Record<string, string> | undefined),
+  }
+  const creds = loadOpenSkyCredentials()
+  if (creds) {
+    headers['X-OpenSky-Client-Id'] = creds.clientId
+    headers['X-OpenSky-Client-Secret'] = creds.clientSecret
+  }
+  return headers
+}
+
 
 async function handle<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -50,7 +64,7 @@ export async function scanSky(
   return handle(
     await fetch('/api/scan', {
       method: 'POST',
-      headers: jsonHeaders,
+      headers: authHeaders(jsonHeaders),
       body: JSON.stringify({ lat, lon, radius_km }),
     }),
   )
@@ -73,7 +87,7 @@ export async function fetchFlightPath(plane: Plane): Promise<FlightPathResponse>
   return handle(
     await fetch(`/api/flight-path/${encodeURIComponent(plane.icao24)}`, {
       method: 'POST',
-      headers: jsonHeaders,
+      headers: authHeaders(jsonHeaders),
       body: JSON.stringify({
         lat: plane.latitude,
         lon: plane.longitude,

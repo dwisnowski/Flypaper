@@ -18,6 +18,7 @@ Feature documentation for the OpenSky credit-gated flight wall. Each page has a 
 | [RainViewer radar](features/rainviewer-radar.md) | Live precipitation overlay on map and globe |
 | [LAN QR access](features/lan-qr-access.md) | Open the current page from a phone on Wi‑Fi |
 | [Themes & sounds](features/themes-and-sounds.md) | Light/dark theme and scan feedback sounds |
+| [OpenSky credentials](features/opensky-credentials.md) | Browser localStorage + optional server `.env` fallback |
 | [Shared browser store](features/shared-store.md) | Map and Globe share one `localStorage` snapshot |
 
 ## Deploy

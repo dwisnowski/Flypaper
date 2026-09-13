@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 import httpx
+from starlette.requests import Request
 
 from app.config import Settings
 
@@ -17,7 +18,13 @@ logger = logging.getLogger(__name__)
 
 TOKEN_REFRESH_MARGIN_S = 30
 
+HEADER_CLIENT_ID = "X-OpenSky-Client-Id"
+HEADER_CLIENT_SECRET = "X-OpenSky-Client-Secret"
+
 CreditBucket = Literal["states", "tracks", "flights"]
+
+# Access tokens keyed by OpenSky client_id (never log secrets).
+_token_by_client: dict[str, tuple[str, datetime]] = {}
 
 _last_credits: dict[CreditBucket, int | None] = {
     "states": None,
@@ -72,38 +79,75 @@ class OpenSkyRateLimitError(Exception):
         self.bucket = bucket
 
 
-class TokenManager:
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._token: str | None = None
-        self._expires_at: datetime | None = None
-        self._client_id, self._client_secret = self._resolve_credentials()
 
-    def _resolve_credentials(self) -> tuple[str, str]:
-        client_id = self._settings.open_sky_client_id
-        client_secret = self._settings.open_sky_client_secret
+class CredentialsMissingError(Exception):
+    """No browser headers and no server .env / credentials file."""
 
-        cred_path = self._settings.credentials_path
-        if cred_path is not None:
-            try:
-                data = json.loads(cred_path.read_text(encoding="utf-8"))
-                client_id = data.get("clientId") or data.get("client_id") or client_id
-                client_secret = (
-                    data.get("clientSecret") or data.get("client_secret") or client_secret
-                )
-            except (OSError, json.JSONDecodeError) as exc:
-                logger.warning("Could not read credentials file %s: %s", cred_path, exc)
 
-        if not client_id or not client_secret:
-            raise RuntimeError(
-                "OpenSky credentials missing. Set OPEN_SKY_CLIENT_ID / "
-                "OPEN_SKY_CLIENT_SECRET or OPEN_SKY_CREDENTIALS_FILE."
-            )
+def resolve_server_credentials(settings: Settings) -> tuple[str, str] | None:
+    """Return (client_id, client_secret) from env / credentials file, or None."""
+    client_id = (settings.open_sky_client_id or "").strip()
+    client_secret = (settings.open_sky_client_secret or "").strip()
+
+    cred_path = settings.credentials_path
+    if cred_path is not None:
+        try:
+            data = json.loads(cred_path.read_text(encoding="utf-8"))
+            client_id = (
+                data.get("clientId") or data.get("client_id") or client_id or ""
+            ).strip()
+            client_secret = (
+                data.get("clientSecret") or data.get("client_secret") or client_secret or ""
+            ).strip()
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Could not read credentials file %s: %s", cred_path, exc)
+
+    if client_id and client_secret:
         return client_id, client_secret
+    return None
+
+
+def server_opensky_configured(settings: Settings) -> bool:
+    return resolve_server_credentials(settings) is not None
+
+
+def credentials_from_request(request: Request) -> tuple[str, str] | None:
+    client_id = (request.headers.get(HEADER_CLIENT_ID) or "").strip()
+    client_secret = (request.headers.get(HEADER_CLIENT_SECRET) or "").strip()
+    if client_id and client_secret:
+        return client_id, client_secret
+    return None
+
+
+def resolve_request_credentials(
+    request: Request, settings: Settings
+) -> tuple[str, str]:
+    """Prefer per-request browser headers; fall back to server .env."""
+    header_creds = credentials_from_request(request)
+    if header_creds is not None:
+        return header_creds
+    server = resolve_server_credentials(settings)
+    if server is not None:
+        return server
+    raise CredentialsMissingError(
+        "OpenSky credentials missing. Enter your API client id and secret in the "
+        "app (stored in this browser), or set OPEN_SKY_CLIENT_ID / "
+        "OPEN_SKY_CLIENT_SECRET locally in .env."
+    )
+
+
+class TokenManager:
+    def __init__(self, settings: Settings, client_id: str, client_secret: str) -> None:
+        self._settings = settings
+        self._client_id = client_id
+        self._client_secret = client_secret
 
     def get_token(self) -> str:
-        if self._token and self._expires_at and datetime.now(timezone.utc) < self._expires_at:
-            return self._token
+        cached = _token_by_client.get(self._client_id)
+        if cached is not None:
+            token, expires_at = cached
+            if datetime.now(timezone.utc) < expires_at:
+                return token
         return self._refresh()
 
     def _refresh(self) -> str:
@@ -116,25 +160,43 @@ class TokenManager:
                     "client_secret": self._client_secret,
                 },
             )
+            if response.status_code in (400, 401, 403):
+                raise CredentialsMissingError(
+                    "OpenSky rejected these API credentials. Check your client id "
+                    "and secret."
+                )
             response.raise_for_status()
             data = response.json()
 
-        self._token = data["access_token"]
+        token = data["access_token"]
         expires_in = int(data.get("expires_in", 1800))
-        self._expires_at = datetime.now(timezone.utc) + timedelta(
+        expires_at = datetime.now(timezone.utc) + timedelta(
             seconds=max(expires_in - TOKEN_REFRESH_MARGIN_S, 60)
         )
-        logger.info("OpenSky access token refreshed (expires in %ss)", expires_in)
-        return self._token
+        _token_by_client[self._client_id] = (token, expires_at)
+        logger.info(
+            "OpenSky access token refreshed for client_id=%s… (expires in %ss)",
+            self._client_id[:8],
+            expires_in,
+        )
+        return token
 
     def auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.get_token()}"}
 
+    def invalidate(self) -> None:
+        _token_by_client.pop(self._client_id, None)
+
 
 class OpenSkyClient:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, client_id: str, client_secret: str) -> None:
         self._settings = settings
-        self._tokens = TokenManager(settings)
+        self._tokens = TokenManager(settings, client_id, client_secret)
+
+    @classmethod
+    def from_request(cls, request: Request, settings: Settings) -> OpenSkyClient:
+        client_id, client_secret = resolve_request_credentials(request, settings)
+        return cls(settings, client_id, client_secret)
 
     def _request(
         self,
@@ -150,7 +212,7 @@ class OpenSkyClient:
         with httpx.Client(timeout=60.0) as client:
             response = client.get(url, params=params, headers=headers)
             if response.status_code == 401:
-                self._tokens._refresh()
+                self._tokens.invalidate()
                 headers = self._tokens.auth_headers()
                 response = client.get(url, params=params, headers=headers)
 

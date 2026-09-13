@@ -6,7 +6,8 @@ OpenSky flight wall — a FastAPI + React app that shows airplanes near you **on
 
 ```bash
 cp .env.example .env
-# Edit .env with your OpenSky client id/secret (or keep credentials.json locally)
+# Optional for local use: put your OpenSky client id/secret in .env
+# (hosted users enter credentials in the app instead — see below)
 
 make install
 make run
@@ -17,6 +18,11 @@ make run
 - UI Globe (WebGL): http://127.0.0.1:5173/globe  
 
 Open the UI, allow location (or set `HOME_LAT` / `HOME_LON` / ZIP), then press **Scan sky**. Scans and flight paths are stored in `localStorage` (`flypaper.v1`) so both Map and Globe share the same spent-credit data across reloads.
+
+### OpenSky credentials
+
+- **Hosted / shared deploy:** use the **key** icon in the toolbar to paste your OpenSky client id and secret. They are stored only in **this browser’s** `localStorage` (`flypaper.opensky`) and sent to the Flypaper API when you scan or load a flight path — not shared with other visitors.
+- **Local `.env`:** still supported. If `OPEN_SKY_CLIENT_ID` / `OPEN_SKY_CLIENT_SECRET` (or `credentials.json`) are set on the server, scans work without saving credentials in the browser. Prefer `.env` for solo local development so you never paste secrets into a shared site.
 
 ## Features
 
@@ -78,8 +84,8 @@ Short version:
 
 All runtime knobs live in `.env` (see `.env.example`):
 
-- `OPEN_SKY_CLIENT_ID` / `OPEN_SKY_CLIENT_SECRET` — from your OpenSky account API client
-- `OPEN_SKY_CREDENTIALS_FILE` — optional path to `credentials.json`
+- `OPEN_SKY_CLIENT_ID` / `OPEN_SKY_CLIENT_SECRET` — optional local/dev fallback (hosted users use the in-app key icon)
+- `OPEN_SKY_CREDENTIALS_FILE` — optional path to `credentials.json` (same fallback)
 - `HOME_LAT` / `HOME_LON` — fallback when browser geolocation is denied
 - `DEFAULT_RADIUS_KM` — default scan radius (bbox sized to prefer the **1-credit** OpenSky tier)
 - On Render, set the OpenSky secrets in the dashboard; `PORT` is provided by the platform
