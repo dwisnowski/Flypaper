@@ -148,10 +148,14 @@ export default function HomePage() {
     setError(null)
     try {
       const result = await scanSky(observerLat, observerLon, radiusKm)
+      const stillSelected =
+        selectedId != null && result.planes.some((p) => p.icao24 === selectedId)
+          ? selectedId
+          : null
       updateStore({
         snapshot: result,
         pathCache: {},
-        selectedId: null,
+        selectedId: stillSelected,
         filters: { ...filters, distanceMax: radiusKm },
         radiusKm,
       })
@@ -164,7 +168,7 @@ export default function HomePage() {
     } finally {
       setScanning(false)
     }
-  }, [filters, observerLat, observerLon, play, radiusKm, updateStore])
+  }, [filters, observerLat, observerLon, play, radiusKm, selectedId, updateStore])
 
   const selectPlane = useCallback(
     (icao24: string) => {
