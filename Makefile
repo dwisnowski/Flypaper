@@ -1,4 +1,4 @@
-.PHONY: install run run-api run-web build clean health scan-smoke aircraft-db lint
+.PHONY: install run run-api run-web run-prod build clean health scan-smoke aircraft-db lint
 
 UV ?= uv
 NPM ?= npm
@@ -19,6 +19,10 @@ run-web:
 run:
 	@echo "Starting Flypaper API (:$(API_PORT)) and Vite (:5173, LAN host)…"
 	@$(MAKE) -j2 run-api run-web
+
+# Production-shaped process (serves frontend/dist + /api). Build first: make build
+run-prod:
+	$(UV) run uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $(API_PORT)
 
 build:
 	cd frontend && $(NPM) run build

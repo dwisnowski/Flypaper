@@ -1,0 +1,30 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Dashboard: New → Blueprint → connect this repo (or paste render.yaml).
+#
+# After the first deploy, set secrets in the service Environment tab
+# (Blueprint marks them sync:false so they are not stored in git).
+
+services:
+  - type: web
+    name: flypaper
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: OPEN_SKY_CLIENT_ID
+        sync: false
+      - key: OPEN_SKY_CLIENT_SECRET
+        sync: false
+      - key: HOME_LAT
+        value: "37.7749"
+      - key: HOME_LON
+        value: "-122.4194"
+      - key: DEFAULT_RADIUS_KM
+        value: "150"
+      # Same-origin SPA + API — localhost defaults are fine; optional override:
+      - key: CORS_ORIGINS
+        value: "http://localhost:5173,http://127.0.0.1:5173"
+      - key: DOWNLOAD_AIRCRAFT_DB
+        value: "false"
