@@ -74,11 +74,11 @@ export default function HomePage() {
   const filtered = useFilteredPlanes(snapshot?.planes ?? [], filters)
 
   // Prefer pinned location (ZIP / map pin) over live geo.
-  const pinned = isPinnedLocation(store.location)
-  const observerLat = pinned ? store.location.lat : geo.lat
-  const observerLon = pinned ? store.location.lon : geo.lon
-  const locationSource = pinned
-    ? store.location.source
+  const pinnedLocation = isPinnedLocation(store.location) ? store.location : null
+  const observerLat = pinnedLocation ? pinnedLocation.lat : geo.lat
+  const observerLon = pinnedLocation ? pinnedLocation.lon : geo.lon
+  const locationSource = pinnedLocation
+    ? pinnedLocation.source
     : geo.source === 'pending'
       ? 'pending'
       : geo.source

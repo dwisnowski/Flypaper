@@ -20,6 +20,12 @@ Feature documentation for the OpenSky credit-gated flight wall. Each page has a 
 | [Themes & sounds](features/themes-and-sounds.md) | Light/dark theme and scan feedback sounds |
 | [Shared browser store](features/shared-store.md) | Map and Globe share one `localStorage` snapshot |
 
+## Deploy
+
+| Guide | Summary |
+|-------|---------|
+| [Render (free)](deploy-render.md) | Docker web service: API + SPA from one process |
+
 ## Screenshots
 
 All images live in [`images/`](images/).

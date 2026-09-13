@@ -57,10 +57,22 @@ Toggle the storm icon for **RainViewer** live radar (free personal/educational u
 | `make run` | API + Vite together |
 | `make run-api` / `make run-web` | Run one side |
 | `make build` | Production frontend build (API serves `frontend/dist`) |
+| `make run-prod` | Single process like production (needs `make build` first) |
 | `make health` | Hit `/api/health` |
 | `make aircraft-db` | Download OpenSky aircraft metadata CSV for richer type/operator filters |
 | `make lint` | Ruff + oxlint |
 | `make clean` | Remove venv, node_modules, dist, cached DB |
+
+## Deploy on Render (free)
+
+One Docker web service serves the API and the built SPA. See **[docs/deploy-render.md](docs/deploy-render.md)**.
+
+Short version:
+
+1. Push this repo to GitHub.
+2. Render Dashboard → **New** → **Blueprint** → select the repo (`render.yaml`).
+3. Set `OPEN_SKY_CLIENT_ID` and `OPEN_SKY_CLIENT_SECRET`.
+4. Open `https://<service>.onrender.com` (free tier sleeps when idle).
 
 ## Configuration
 
@@ -70,6 +82,7 @@ All runtime knobs live in `.env` (see `.env.example`):
 - `OPEN_SKY_CREDENTIALS_FILE` — optional path to `credentials.json`
 - `HOME_LAT` / `HOME_LON` — fallback when browser geolocation is denied
 - `DEFAULT_RADIUS_KM` — default scan radius (bbox sized to prefer the **1-credit** OpenSky tier)
+- On Render, set the OpenSky secrets in the dashboard; `PORT` is provided by the platform
 
 **Never commit** `.env` or `credentials.json`.
 
