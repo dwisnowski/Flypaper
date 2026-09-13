@@ -32,6 +32,7 @@ import { useGeolocation } from '../hooks/useGeolocation'
 import { useSounds } from '../hooks/useSounds'
 import { loadStore, isPinnedLocation } from '../store/flypaperStore'
 import type { AppConfig, FlightPathResponse } from '../types'
+import { DEFAULT_FILTERS } from '../types'
 
 export default function HomePage() {
   const [store, updateStore] = useFlypaperStore()
@@ -349,11 +350,21 @@ export default function HomePage() {
               totalCount={snapshot.planes.length}
               fetchedAt={snapshot.fetched_at}
               filters={filters}
+              selectedId={selectedId}
+              distanceMax={radiusKm}
               onFiltersChange={(next) => {
                 play('click')
                 updateStore({ filters: next })
               }}
               onSelectPlane={selectPlane}
+              onReset={() => {
+                play('click')
+                updateStore({
+                  filters: { ...DEFAULT_FILTERS, distanceMax: radiusKm },
+                  selectedId: null,
+                })
+                setFlightPath(null)
+              }}
             />
           ) : (
             <>

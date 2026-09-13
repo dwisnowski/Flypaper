@@ -1,8 +1,11 @@
+import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useEffect, useMemo, useState } from 'react'
 import type { Airframe, ClimbState, FilterState, Plane, Usage } from '../types'
+import { DEFAULT_FILTERS } from '../types'
 
 const AIRFRAME_COLORS: Record<Airframe, string> = {
   jet: '#3dd6c6',
@@ -97,12 +100,14 @@ function PieChart({
   colors,
   activeKeys,
   onSelect,
+  onClear,
   size = 112,
 }: {
   slices: { key: string; count: number }[]
   colors: Record<string, string>
   activeKeys: string[]
   onSelect: (key: string) => void
+  onClear: () => void
   size?: number
 }) {
   const total = slices.reduce((a, s) => a + s.count, 0) || 1
@@ -170,7 +175,18 @@ function PieChart({
           </path>
         )
       })}
-      <circle cx={r} cy={r} r={ir * 0.92} fill="rgba(7,16,24,0.55)" />
+      <circle
+        cx={r}
+        cy={r}
+        r={ir * 0.92}
+        fill="rgba(7,16,24,0.55)"
+        style={{ cursor: hasActive ? 'pointer' : 'default' }}
+        onClick={() => {
+          if (hasActive) onClear()
+        }}
+      >
+        <title>{hasActive ? 'Clear this filter' : 'All categories'}</title>
+      </circle>
       <text
         x={r}
         y={r}
@@ -425,16 +441,23 @@ export function ScanStatsPanel({
   totalCount,
   fetchedAt,
   filters,
+  selectedId,
+  distanceMax,
   onFiltersChange,
   onSelectPlane,
+  onReset,
 }: {
   planes: Plane[]
   /** Unfiltered scan size — shown when filters shrink the set. */
   totalCount?: number
   fetchedAt: number
   filters: FilterState
+  selectedId: string | null
+  /** Keep scan radius as distance ceiling when resetting filters. */
+  distanceMax: number
   onFiltersChange: (next: FilterState) => void
   onSelectPlane: (icao24: string) => void
+  onReset: () => void
 }) {
   const [nowMs, setNowMs] = useState(() => Date.now())
   useEffect(() => {
@@ -464,6 +487,19 @@ export function ScanStatsPanel({
       ),
     [planes],
   )
+
+  const canReset =
+    selectedId != null ||
+    filters.usages.length > 0 ||
+    filters.airframes.length > 0 ||
+    filters.climbStates.length > 0 ||
+    filters.callsignQuery.trim() !== '' ||
+    filters.countryQuery.trim() !== '' ||
+    filters.altitudeMin !== DEFAULT_FILTERS.altitudeMin ||
+    filters.altitudeMax !== DEFAULT_FILTERS.altitudeMax ||
+    filters.speedMin !== DEFAULT_FILTERS.speedMin ||
+    filters.airborneOnly !== DEFAULT_FILTERS.airborneOnly ||
+    filters.distanceMax !== distanceMax
 
   const toggleAirframe = (key: string) => {
     onFiltersChange({
@@ -526,7 +562,7 @@ export function ScanStatsPanel({
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         spacing={2}
-        alignItems={{ xs: 'flex-start', sm: 'baseline' }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
         mb={1.5}
         flexWrap="wrap"
         useFlexGap
@@ -580,6 +616,18 @@ export function ScanStatsPanel({
             ) : null}
           </Typography>
         </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          size="small"
+          variant="outlined"
+          color="inherit"
+          startIcon={<RestartAltIcon />}
+          disabled={!canReset}
+          onClick={onReset}
+          aria-label="Reset filters and selection"
+        >
+          Reset
+        </Button>
       </Stack>
 
       <Box
@@ -612,6 +660,7 @@ export function ScanStatsPanel({
               colors={AIRFRAME_COLORS}
               activeKeys={filters.airframes}
               onSelect={toggleAirframe}
+              onClear={() => onFiltersChange({ ...filters, airframes: [] })}
             />
             <Legend
               slices={airframes}
@@ -640,6 +689,7 @@ export function ScanStatsPanel({
               colors={USAGE_COLORS}
               activeKeys={filters.usages}
               onSelect={toggleUsage}
+              onClear={() => onFiltersChange({ ...filters, usages: [] })}
             />
             <Legend
               slices={usages}
