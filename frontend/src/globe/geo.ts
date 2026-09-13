@@ -1,6 +1,17 @@
 import * as THREE from 'three'
 
 export const EARTH_RADIUS = 1.6
+export const EARTH_KM = 6371
+
+/** Scene-unit distance for a ground range in kilometers (orbit altitude above a surface target). */
+export function kmToOrbitDistance(km: number): number {
+  return (km / EARTH_KM) * EARTH_RADIUS
+}
+
+/** Zip / neighborhood floor, metro start height, full-globe ceiling. */
+export const ZOOM_MIN_DISTANCE = kmToOrbitDistance(6)
+export const ZOOM_START_DISTANCE = kmToOrbitDistance(220)
+export const ZOOM_MAX_DISTANCE = EARTH_RADIUS * 4
 
 /** Convert geodetic lat/lon/alt(m) to Three.js position on a Y-up globe. */
 export function latLonToVec3(

@@ -1,5 +1,6 @@
 import { Line } from '@react-three/drei'
-import { useMemo } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
+import { useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import type { FlightPathResponse, Plane } from '../types'
 import { ContrailParticles } from './Particles'
@@ -14,21 +15,41 @@ function PlaneMarker({
   selected: boolean
   onSelect: (id: string) => void
 }) {
-  if (plane.latitude == null || plane.longitude == null) return null
-  const pos = latLonToVec3(plane.latitude, plane.longitude, plane.baro_altitude_m ?? 0)
+  const mesh = useRef<THREE.Mesh>(null)
+  const { camera } = useThree()
+  const hasCoords = plane.latitude != null && plane.longitude != null
+  const pos = useMemo(
+    () =>
+      hasCoords
+        ? latLonToVec3(plane.latitude!, plane.longitude!, plane.baro_altitude_m ?? 0)
+        : new THREE.Vector3(),
+    [hasCoords, plane.latitude, plane.longitude, plane.baro_altitude_m],
+  )
+
+  useFrame(() => {
+    if (!mesh.current || !hasCoords) return
+    // Scale from camera→marker distance (not Earth-center altitude).
+    const dist = camera.position.distanceTo(pos)
+    const size = THREE.MathUtils.clamp(dist * 0.085, 0.0007, 0.02)
+    mesh.current.scale.setScalar(selected ? size * 1.55 : size)
+  })
+
+  if (!hasCoords) return null
+
   return (
     <mesh
+      ref={mesh}
       position={pos}
       onClick={(e) => {
         e.stopPropagation()
         onSelect(plane.icao24)
       }}
     >
-      <sphereGeometry args={[selected ? 0.028 : 0.016, 10, 10]} />
+      <sphereGeometry args={[1, 10, 10]} />
       <meshStandardMaterial
         color={selected ? '#f4a261' : '#3dd6c6'}
         emissive={selected ? '#f4a261' : '#0d7377'}
-        emissiveIntensity={selected ? 0.6 : 0.25}
+        emissiveIntensity={selected ? 0.7 : 0.3}
       />
     </mesh>
   )
@@ -45,6 +66,11 @@ export function AircraftLayer({
   onSelect: (id: string) => void
   flightPath: FlightPathResponse | null
 }) {
+  const visiblePlanes = useMemo(
+    () => (selectedId ? planes.filter((p) => p.icao24 === selectedId) : planes),
+    [planes, selectedId],
+  )
+
   const flown = useMemo(() => {
     if (!flightPath?.flown?.length) return [] as THREE.Vector3[]
     return flightPath.flown.map((p) => latLonToVec3(p.lat, p.lon, 8000))
@@ -68,7 +94,7 @@ export function AircraftLayer({
 
   return (
     <group>
-      {planes.map((p) => (
+      {visiblePlanes.map((p) => (
         <PlaneMarker
           key={p.icao24}
           plane={p}
@@ -94,7 +120,7 @@ export function AircraftLayer({
       <ContrailParticles points={flown} />
       {dest && (
         <mesh position={dest}>
-          <boxGeometry args={[0.03, 0.03, 0.03]} />
+          <boxGeometry args={[0.012, 0.012, 0.012]} />
           <meshStandardMaterial color="#ef476f" emissive="#ef476f" emissiveIntensity={0.5} />
         </mesh>
       )}

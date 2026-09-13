@@ -15,12 +15,13 @@ import Stack from '@mui/material/Stack'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { estimateCost, fetchConfig, fetchFlightPath, scanSky } from '../api'
 import { CreditGauge } from '../components/CreditGauge'
 import { FilterDrawer } from '../components/FilterDrawer'
 import { PlaneList } from '../components/PlaneList'
 import { ScanButton } from '../components/ScanButton'
+import { ZipCodePopover } from '../components/ZipCodePopover'
 import { GlobeCanvas } from '../globe/GlobeCanvas'
 import { useFilteredPlanes } from '../hooks/useFilteredPlanes'
 import { useFlypaperStore } from '../hooks/useFlypaperStore'
@@ -53,13 +54,25 @@ export default function GlobePage() {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [spentLast, setSpentLast] = useState<number | null>(null)
+  const [zipAnchor, setZipAnchor] = useState<HTMLElement | null>(null)
+  const [locationChipEl, setLocationChipEl] = useState<HTMLElement | null>(null)
   const [flightPath, setFlightPath] = useState<FlightPathResponse | null>(null)
   const [pathLoading, setPathLoading] = useState(false)
+  const zipOpen = Boolean(zipAnchor)
+
+  const openZipPopover = useCallback(
+    (anchor?: HTMLElement | null) => {
+      setZipAnchor(anchor ?? locationChipEl)
+    },
+    [locationChipEl],
+  )
 
   const filtered = useFilteredPlanes(snapshot?.planes ?? [], filters)
 
-  const observerLat = store.location?.lat ?? geo.lat
-  const observerLon = store.location?.lon ?? geo.lon
+  const observerLat = store.location?.source === 'zip' ? store.location.lat : geo.lat
+  const observerLon = store.location?.source === 'zip' ? store.location.lon : geo.lon
+  const locationSource =
+    store.location?.source === 'zip' ? 'zip' : geo.source === 'pending' ? 'pending' : geo.source
 
   useEffect(() => {
     void fetchConfig()
@@ -68,10 +81,29 @@ export default function GlobePage() {
   }, [])
 
   useEffect(() => {
+    if (geo.source === 'home' && geo.error && store.location?.source !== 'zip') {
+      setError(`Location unavailable: ${geo.error}. Enter a ZIP code to continue.`)
+      if (locationChipEl) setZipAnchor(locationChipEl)
+    }
+  }, [geo.source, geo.error, locationChipEl, store.location?.source])
+
+  useEffect(() => {
+    if (locationSource === 'zip' || locationSource === 'geo') setError(null)
+  }, [locationSource])
+
+  useEffect(() => {
+    if (store.location?.source === 'zip') return
+    updateStore({
+      location: { lat: geo.lat, lon: geo.lon, source: geo.source },
+    })
+  }, [geo.lat, geo.lon, geo.source, store.location?.source, updateStore])
+
+  useEffect(() => {
+    if (locationSource === 'pending') return
     void estimateCost(observerLat, observerLon, radiusKm)
       .then((r) => setEstimate(r.credits_spent_estimate))
       .catch(() => setEstimate(1))
-  }, [observerLat, observerLon, radiusKm])
+  }, [observerLat, observerLon, locationSource, radiusKm])
 
   const onScan = useCallback(async () => {
     play('scan')
@@ -100,9 +132,9 @@ export default function GlobePage() {
   const selectPlane = useCallback(
     (icao24: string) => {
       play('click')
-      updateStore({ selectedId: icao24 })
+      updateStore({ selectedId: selectedId === icao24 ? null : icao24 })
     },
-    [play, updateStore],
+    [play, selectedId, updateStore],
   )
 
   useEffect(() => {
@@ -148,25 +180,38 @@ export default function GlobePage() {
   return (
     <>
       <Toolbar sx={{ gap: 1, justifyContent: 'flex-end', minHeight: '48px !important' }}>
-        <Tooltip title="Observer location">
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1.25,
-              py: 0.5,
-              borderRadius: 999,
-              border: 1,
-              borderColor: 'divider',
-              typography: 'caption',
-              fontFamily: 'IBM Plex Mono, monospace',
-              textTransform: 'uppercase',
+        <Tooltip
+          title={
+            locationSource === 'pending'
+              ? 'Getting your location…'
+              : locationSource === 'geo'
+                ? 'Using your current location — click to refresh'
+                : locationSource === 'zip'
+                  ? `Using ZIP${store.location?.label ? `: ${store.location.label}` : ''} — click to change`
+                  : `Using home fallback — click for ZIP or GPS`
+          }
+        >
+          <Chipish
+            ref={setLocationChipEl}
+            icon={<MyLocationIcon fontSize="small" />}
+            label={
+              locationSource === 'pending'
+                ? 'Locating…'
+                : locationSource === 'zip'
+                  ? store.location?.label?.split(',')[0] || 'ZIP'
+                  : locationSource
+            }
+            onClick={(event) => {
+              play('click')
+              setError(null)
+              if (locationSource === 'home' || locationSource === 'zip') {
+                openZipPopover(event.currentTarget)
+              } else {
+                geo.refresh()
+              }
             }}
-          >
-            <MyLocationIcon fontSize="small" />
-            {store.location?.source ?? geo.source}
-          </Box>
+            disabled={locationSource === 'pending'}
+          />
         </Tooltip>
         <Tooltip title={radarEnabled ? 'Hide RainViewer radar' : 'Show RainViewer radar'}>
           <IconButton
@@ -222,7 +267,7 @@ export default function GlobePage() {
           <ScanButton
             onScan={onScan}
             loading={scanning}
-            disabled={geo.source === 'pending' || creditsRemaining === 0}
+            disabled={locationSource === 'pending' || creditsRemaining === 0}
             estimate={estimate}
           />
         </Stack>
@@ -324,6 +369,70 @@ export default function GlobePage() {
         onChange={(next) => updateStore({ filters: next })}
         maxDistance={radiusKm}
       />
+      <ZipCodePopover
+        open={zipOpen}
+        anchorEl={zipAnchor}
+        onClose={() => setZipAnchor(null)}
+        onResolved={(lat, lon, label) => {
+          play('credit')
+          updateStore({ location: { lat, lon, source: 'zip', label } })
+          setError(null)
+        }}
+      />
     </>
+  )
+}
+
+function Chipish({
+  icon,
+  label,
+  onClick,
+  disabled,
+  ref,
+}: {
+  icon: ReactNode
+  label: string
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void
+  disabled?: boolean
+  ref?: (node: HTMLButtonElement | null) => void
+}) {
+  return (
+    <Box
+      component="button"
+      type="button"
+      ref={ref}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-label="Set location"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 0.5,
+        px: 1.25,
+        py: 0.5,
+        m: 0,
+        borderRadius: 999,
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: 'transparent',
+        color: 'inherit',
+        typography: 'caption',
+        textTransform: 'uppercase',
+        letterSpacing: '0.08em',
+        fontFamily: 'IBM Plex Mono, monospace',
+        cursor: disabled ? 'wait' : 'pointer',
+        opacity: disabled ? 0.7 : 1,
+        transition: 'border-color 0.2s ease, background-color 0.2s ease',
+        '&:hover': disabled
+          ? undefined
+          : {
+              borderColor: 'primary.main',
+              bgcolor: 'action.hover',
+            },
+      }}
+    >
+      {icon}
+      {label}
+    </Box>
   )
 }
