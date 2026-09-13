@@ -18,12 +18,34 @@ make run
 
 Open the UI, allow location (or set `HOME_LAT` / `HOME_LON` / ZIP), then press **Scan sky**. Scans and flight paths are stored in `localStorage` (`flypaper.v1`) so both Map and Globe share the same spent-credit data across reloads.
 
+## Features
+
+| Feature | What it does |
+|---------|----------------|
+| [Scan sky](docs/features/scan-sky.md) | Explicit OpenSky pulls — spend credits only on demand |
+| [Credit gauge](docs/features/credit-gauge.md) | Remaining daily credits and last-scan spend |
+| [Leaflet map](docs/features/leaflet-map.md) | 2D flight wall with planes, radius, and paths |
+| [Observer location](docs/features/observer-location.md) | GPS, ZIP/postal, or press-and-hold map pin |
+| [Scan stats](docs/features/scan-stats.md) | Interactive airframe / usage / climb / speed / altitude panel |
+| [Filters](docs/features/filters.md) | Client-side filters that never spend credits |
+| [Aircraft list](docs/features/aircraft-list.md) | Callsign list synced to map and globe selection |
+| [Flight paths](docs/features/flight-paths.md) | Flown track + estimated remaining path |
+| [WebGL globe](docs/features/webgl-globe.md) | 3D Earth view of the same snapshot |
+| [RainViewer radar](docs/features/rainviewer-radar.md) | Live precipitation on map and globe |
+| [LAN QR access](docs/features/lan-qr-access.md) | Open the current page from a phone on Wi‑Fi |
+| [Themes & sounds](docs/features/themes-and-sounds.md) | Light/dark theme and action sounds |
+| [Shared browser store](docs/features/shared-store.md) | One `localStorage` snapshot for Map + Globe |
+
+Full write-ups with screenshots: **[docs/](docs/README.md)**.
+
+![Map flight wall after a scan](docs/images/map-flight-wall.png)
+
 ## Pages
 
 | Route | What |
 |-------|------|
-| `/` | Leaflet 2D flight wall (Phase 1) |
-| `/globe` | React Three Fiber WebGL globe — planes, paths, particles, bump terrain, RainViewer radar (Phase 2, iPad Safari–friendly) |
+| `/` | Leaflet 2D flight wall (Phase 1) + scan stats |
+| `/globe` | React Three Fiber WebGL globe — planes, paths, particles, RainViewer radar (Phase 2, iPad Safari–friendly) |
 
 Toggle the storm icon for **RainViewer** live radar (free personal/educational use — attribution shown on the UI).
 
@@ -53,15 +75,7 @@ All runtime knobs live in `.env` (see `.env.example`):
 
 ## Credits
 
-OpenSky `/states/all` costs **1–4 credits** depending on bounding-box area. The UI shows the estimated cost before you scan and displays `X-Rate-Limit-Remaining` after each spend. Page refresh uses the cached snapshot and does **not** call OpenSky.
-
-## Filters
-
-Client-side on the last snapshot:
-
-- Usage: military / commercial / personal / unknown (heuristics + optional aircraft DB)
-- Airframe: jet / turboprop / piston / heli / uav / other
-- Altitude, distance from you, speed, climb state, airborne-only, callsign, country
+OpenSky `/states/all` costs **1–4 credits** depending on bounding-box area. The UI shows the estimated cost before you scan and displays remaining credits after each spend. Page refresh uses the cached snapshot and does **not** call OpenSky. Flight paths use a separate OpenSky **track** credit bucket (~4 per path).
 
 ## Optional enrichment
 
