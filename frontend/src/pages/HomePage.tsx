@@ -344,7 +344,17 @@ export default function HomePage() {
           mb={2}
         >
           {hasScanned && snapshot ? (
-            <ScanStatsPanel planes={snapshot.planes} fetchedAt={snapshot.fetched_at} />
+            <ScanStatsPanel
+              planes={filtered}
+              totalCount={snapshot.planes.length}
+              fetchedAt={snapshot.fetched_at}
+              filters={filters}
+              onFiltersChange={(next) => {
+                play('click')
+                updateStore({ filters: next })
+              }}
+              onSelectPlane={selectPlane}
+            />
           ) : (
             <>
               <Box flex={1}>
