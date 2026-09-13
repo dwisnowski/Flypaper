@@ -75,6 +75,7 @@ class ConfigPublic(BaseModel):
     home_lon: float
     default_radius_km: float
     daily_allowance: int = 4000
+    server_opensky_configured: bool = False
 
 
 class LatLonPoint(BaseModel):

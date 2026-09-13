@@ -46,6 +46,8 @@ export interface AppConfig {
   home_lon: number
   default_radius_km: number
   daily_allowance: number
+  /** True when the API process has OPEN_SKY_* in .env (local-dev fallback). */
+  server_opensky_configured: boolean
 }
 
 export interface FilterState {

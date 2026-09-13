@@ -24,7 +24,13 @@ from app.models import (
     radius_to_bbox,
 )
 from app.opensky.airports import guess_destination, interpolate_arc
-from app.opensky.client import OpenSkyClient, OpenSkyRateLimitError, get_remembered_credits
+from app.opensky.client import (
+    CredentialsMissingError,
+    OpenSkyClient,
+    OpenSkyRateLimitError,
+    get_remembered_credits,
+    server_opensky_configured,
+)
 from app.store import enrich_planes, snapshot_store
 
 logger = logging.getLogger(__name__)
@@ -37,11 +43,10 @@ def _settings(request: Request) -> Settings:
 
 
 def _client(request: Request) -> OpenSkyClient:
-    client = getattr(request.app.state, "opensky", None)
-    if client is None:
-        client = OpenSkyClient(_settings(request))
-        request.app.state.opensky = client
-    return client
+    try:
+        return OpenSkyClient.from_request(request, _settings(request))
+    except CredentialsMissingError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
 
 
 def _enricher(request: Request):
@@ -69,6 +74,7 @@ def public_config(request: Request) -> ConfigPublic:
         home_lat=settings.home_lat,
         home_lon=settings.home_lon,
         default_radius_km=settings.default_radius_km,
+        server_opensky_configured=server_opensky_configured(settings),
     )
 
 
@@ -112,8 +118,8 @@ def scan(body: ScanRequest, request: Request) -> ScanResponse:
                 "credits_remaining": 0,
             },
         ) from exc
-    except RuntimeError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except CredentialsMissingError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         logger.exception("OpenSky HTTP error")
         raise HTTPException(
@@ -270,6 +276,8 @@ def flight_path(icao24: str, body: FlightPathRequest, request: Request) -> Fligh
                 "bucket": "tracks",
             },
         ) from exc
+    except CredentialsMissingError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
     except httpx.HTTPStatusError as exc:
         logger.exception("OpenSky track HTTP error")
         raise HTTPException(

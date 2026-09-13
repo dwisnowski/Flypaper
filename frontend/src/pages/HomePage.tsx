@@ -18,6 +18,10 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { estimateCost, fetchConfig, fetchFlightPath, scanSky } from '../api'
+import {
+  hasOpenSkyCredentials,
+  openOpenSkyCredentialsPopover,
+} from '../openskyCredentials'
 import { CreditGauge } from '../components/CreditGauge'
 import { FilterDrawer } from '../components/FilterDrawer'
 import { PlaneList } from '../components/PlaneList'
@@ -43,6 +47,7 @@ export default function HomePage() {
     home_lon: -122.4194,
     default_radius_km: 150,
     daily_allowance: 4000,
+    server_opensky_configured: false,
   })
   const geo = useGeolocation(config.home_lat, config.home_lon)
 
@@ -74,11 +79,11 @@ export default function HomePage() {
   const filtered = useFilteredPlanes(snapshot?.planes ?? [], filters)
 
   // Prefer pinned location (ZIP / map pin) over live geo.
-  const pinned = isPinnedLocation(store.location)
-  const observerLat = pinned ? store.location.lat : geo.lat
-  const observerLon = pinned ? store.location.lon : geo.lon
-  const locationSource = pinned
-    ? store.location.source
+  const pinnedLocation = isPinnedLocation(store.location) ? store.location : null
+  const observerLat = pinnedLocation ? pinnedLocation.lat : geo.lat
+  const observerLon = pinnedLocation ? pinnedLocation.lon : geo.lon
+  const locationSource = pinnedLocation
+    ? pinnedLocation.source
     : geo.source === 'pending'
       ? 'pending'
       : geo.source
@@ -147,6 +152,12 @@ export default function HomePage() {
     play('scan')
     setScanning(true)
     setError(null)
+    if (!hasOpenSkyCredentials() && !config.server_opensky_configured) {
+      openOpenSkyCredentialsPopover()
+      setError('Add your OpenSky client id and secret (key icon), or configure .env for local use.')
+      setScanning(false)
+      return
+    }
     try {
       const result = await scanSky(observerLat, observerLon, radiusKm)
       const stillSelected =
@@ -169,7 +180,7 @@ export default function HomePage() {
     } finally {
       setScanning(false)
     }
-  }, [filters, observerLat, observerLon, play, radiusKm, selectedId, updateStore])
+  }, [filters, observerLat, observerLon, play, radiusKm, selectedId, updateStore, config.server_opensky_configured])
 
   const selectPlane = useCallback(
     (icao24: string) => {
