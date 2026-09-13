@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Circle,
   MapContainer,
@@ -17,6 +18,9 @@ import {
   latestRadarFrame,
   radarLeafletTemplate,
 } from '../weather/rainviewer'
+
+const LONG_PRESS_MS = 550
+const LONG_PRESS_MOVE_PX = 12
 
 function planeIcon(track: number | null, selected: boolean) {
   const rotation = track ?? 0
@@ -95,6 +99,139 @@ function MapEffects({
   return null
 }
 
+/** Click-and-hold / long-press empty map to pick a new observer location. */
+function LongPressSetLocation({
+  onPick,
+}: {
+  onPick: (lat: number, lon: number) => void
+}) {
+  const map = useMap()
+  const onPickRef = useRef(onPick)
+  onPickRef.current = onPick
+  const [ring, setRing] = useState<{ x: number; y: number } | null>(null)
+
+  useEffect(() => {
+    const container = map.getContainer()
+    let timer: number | null = null
+    let start: { x: number; y: number; latlng: L.LatLng } | null = null
+    let suppressClickUntil = 0
+
+    const clearTimer = () => {
+      if (timer != null) {
+        window.clearTimeout(timer)
+        timer = null
+      }
+      start = null
+      setRing(null)
+    }
+
+    const isIgnoredTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false
+      return Boolean(
+        target.closest('.leaflet-marker-icon') ||
+          target.closest('.leaflet-control') ||
+          target.closest('.leaflet-popup'),
+      )
+    }
+
+    const onPointerDown = (ev: PointerEvent) => {
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return
+      if (isIgnoredTarget(ev.target)) return
+      const rect = container.getBoundingClientRect()
+      const x = ev.clientX - rect.left
+      const y = ev.clientY - rect.top
+      const latlng = map.containerPointToLatLng(L.point(x, y))
+      start = { x, y, latlng }
+      setRing({ x, y })
+      timer = window.setTimeout(() => {
+        if (!start) return
+        const picked = start.latlng
+        clearTimer()
+        suppressClickUntil = Date.now() + 400
+        map.dragging.disable()
+        window.setTimeout(() => map.dragging.enable(), 180)
+        try {
+          navigator.vibrate?.(18)
+        } catch {
+          /* ignore */
+        }
+        onPickRef.current(picked.lat, picked.lng)
+      }, LONG_PRESS_MS)
+    }
+
+    const onPointerMove = (ev: PointerEvent) => {
+      if (!start) return
+      const rect = container.getBoundingClientRect()
+      const x = ev.clientX - rect.left
+      const y = ev.clientY - rect.top
+      const dx = x - start.x
+      const dy = y - start.y
+      if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) {
+        clearTimer()
+      }
+    }
+
+    const onPointerUp = () => clearTimer()
+
+    const onClickCapture = (ev: MouseEvent) => {
+      if (Date.now() < suppressClickUntil) {
+        ev.stopPropagation()
+        ev.preventDefault()
+      }
+    }
+
+    const onContextMenu = (ev: Event) => {
+      if (Date.now() < suppressClickUntil) ev.preventDefault()
+    }
+
+    const onDragStart = () => clearTimer()
+
+    container.addEventListener('pointerdown', onPointerDown)
+    container.addEventListener('pointermove', onPointerMove)
+    container.addEventListener('pointerup', onPointerUp)
+    container.addEventListener('pointercancel', onPointerUp)
+    container.addEventListener('pointerleave', onPointerUp)
+    container.addEventListener('click', onClickCapture, true)
+    container.addEventListener('contextmenu', onContextMenu)
+    map.on('dragstart', onDragStart)
+
+    return () => {
+      clearTimer()
+      container.removeEventListener('pointerdown', onPointerDown)
+      container.removeEventListener('pointermove', onPointerMove)
+      container.removeEventListener('pointerup', onPointerUp)
+      container.removeEventListener('pointercancel', onPointerUp)
+      container.removeEventListener('pointerleave', onPointerUp)
+      container.removeEventListener('click', onClickCapture, true)
+      container.removeEventListener('contextmenu', onContextMenu)
+      map.off('dragstart', onDragStart)
+    }
+  }, [map])
+
+  if (!ring) return null
+  return createPortal(
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        left: ring.x,
+        top: ring.y,
+        width: 44,
+        height: 44,
+        marginLeft: -22,
+        marginTop: -22,
+        borderRadius: '50%',
+        border: '2px solid rgba(244,162,97,0.95)',
+        boxShadow: '0 0 0 6px rgba(244,162,97,0.2)',
+        pointerEvents: 'none',
+        zIndex: 1000,
+        animation: 'flypaper-longpress 0.55s linear forwards',
+      }}
+    />,
+    map.getContainer(),
+  )
+}
+
 interface Props {
   lat: number
   lon: number
@@ -102,6 +239,7 @@ interface Props {
   planes: Plane[]
   selectedId: string | null
   onSelect: (icao24: string) => void
+  onPickLocation?: (lat: number, lon: number) => void
   scanning: boolean
   flightPath: FlightPathResponse | null
   pathLoading?: boolean
@@ -115,6 +253,7 @@ export function RadarMap({
   planes,
   selectedId,
   onSelect,
+  onPickLocation,
   scanning,
   flightPath,
   pathLoading,
@@ -171,6 +310,10 @@ export function RadarMap({
         bgcolor: '#0a1620',
         boxShadow: scanning ? '0 0 0 2px rgba(61,214,198,0.55)' : 'none',
         transition: 'box-shadow 0.4s ease',
+        '@keyframes flypaper-longpress': {
+          from: { transform: 'scale(0.35)', opacity: 0.35 },
+          to: { transform: 'scale(1)', opacity: 1 },
+        },
         '& .leaflet-container': {
           position: 'absolute',
           inset: 0,
@@ -179,6 +322,7 @@ export function RadarMap({
           background: '#0a1620',
           font: 'inherit',
           zIndex: 0,
+          touchAction: 'manipulation',
         },
         '& .flypaper-you-marker, & .flypaper-dest-marker, & .leaflet-div-icon': {
           background: 'transparent',
@@ -208,13 +352,18 @@ export function RadarMap({
           />
         )}
         <MapEffects lat={lat} lon={lon} selected={selected} flightPath={flightPath} />
+        {onPickLocation ? <LongPressSetLocation onPick={onPickLocation} /> : null}
         <Circle
           center={[lat, lon]}
           radius={radiusKm * 1000}
           pathOptions={{ color: '#3dd6c6', weight: 1.5, fillColor: '#3dd6c6', fillOpacity: 0.06 }}
         />
         <Marker position={[lat, lon]} icon={youIcon}>
-          <Popup>You are here</Popup>
+          <Popup>
+            You are here
+            <br />
+            Press &amp; hold the map to move
+          </Popup>
         </Marker>
 
         {flownPositions.length >= 2 && (
@@ -299,6 +448,27 @@ export function RadarMap({
           }}
         />
       )}
+      <Box
+        sx={{
+          position: 'absolute',
+          right: 12,
+          top: 12,
+          zIndex: 600,
+          px: 1.25,
+          py: 0.75,
+          borderRadius: 2,
+          bgcolor: 'rgba(7,16,24,0.82)',
+          color: '#e8f1f2',
+          fontSize: 11,
+          lineHeight: 1.35,
+          border: '1px solid rgba(244,162,97,0.35)',
+          fontFamily: 'IBM Plex Mono, monospace',
+          pointerEvents: 'none',
+          maxWidth: 200,
+        }}
+      >
+        Press &amp; hold to set location
+      </Box>
       {(pathLoading || flightPath) && (
         <Box
           sx={{

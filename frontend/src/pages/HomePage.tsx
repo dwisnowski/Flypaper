@@ -16,19 +16,21 @@ import Stack from '@mui/material/Stack'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { estimateCost, fetchConfig, fetchFlightPath, scanSky } from '../api'
 import { CreditGauge } from '../components/CreditGauge'
 import { FilterDrawer } from '../components/FilterDrawer'
 import { PlaneList } from '../components/PlaneList'
 import { RadarMap } from '../components/RadarMap'
 import { ScanButton } from '../components/ScanButton'
+import { useScanChromeSlot } from '../components/ScanChromeContext'
+import { ScanStatsPanel } from '../components/ScanStatsPanel'
 import { ZipCodePopover } from '../components/ZipCodePopover'
 import { useFilteredPlanes } from '../hooks/useFilteredPlanes'
 import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSounds } from '../hooks/useSounds'
-import { loadStore } from '../store/flypaperStore'
+import { loadStore, isPinnedLocation } from '../store/flypaperStore'
 import type { AppConfig, FlightPathResponse } from '../types'
 
 export default function HomePage() {
@@ -70,11 +72,15 @@ export default function HomePage() {
 
   const filtered = useFilteredPlanes(snapshot?.planes ?? [], filters)
 
-  // Prefer store location (ZIP) over live geo when set.
-  const observerLat = store.location?.source === 'zip' ? store.location.lat : geo.lat
-  const observerLon = store.location?.source === 'zip' ? store.location.lon : geo.lon
-  const locationSource =
-    store.location?.source === 'zip' ? 'zip' : geo.source === 'pending' ? 'pending' : geo.source
+  // Prefer pinned location (ZIP / map pin) over live geo.
+  const pinned = isPinnedLocation(store.location)
+  const observerLat = pinned ? store.location.lat : geo.lat
+  const observerLon = pinned ? store.location.lon : geo.lon
+  const locationSource = pinned
+    ? store.location.source
+    : geo.source === 'pending'
+      ? 'pending'
+      : geo.source
 
   useEffect(() => {
     void (async () => {
@@ -92,14 +98,16 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
-    if (geo.source === 'home' && geo.error && store.location?.source !== 'zip') {
+    if (geo.source === 'home' && geo.error && !isPinnedLocation(store.location)) {
       setError(`Location unavailable: ${geo.error}. Enter a ZIP code to continue.`)
       if (locationChipEl) setZipAnchor(locationChipEl)
     }
-  }, [geo.source, geo.error, locationChipEl, store.location?.source])
+  }, [geo.source, geo.error, locationChipEl, store.location])
 
   useEffect(() => {
-    if (locationSource === 'zip' || locationSource === 'geo') setError(null)
+    if (locationSource === 'zip' || locationSource === 'map' || locationSource === 'geo') {
+      setError(null)
+    }
   }, [locationSource])
 
   useEffect(() => {
@@ -109,14 +117,30 @@ export default function HomePage() {
       .catch(() => setEstimate(1))
   }, [observerLat, observerLon, locationSource, radiusKm])
 
-  // Sync geo into store when not using ZIP.
+  // Sync geo into store when not using a pinned location.
   useEffect(() => {
     if (geo.source === 'pending' || geo.source === 'home') return
-    if (store.location?.source === 'zip') return
+    if (isPinnedLocation(store.location)) return
     updateStore({
       location: { lat: geo.lat, lon: geo.lon, source: geo.source },
     })
-  }, [geo.lat, geo.lon, geo.source, store.location?.source, updateStore])
+  }, [geo.lat, geo.lon, geo.source, store.location, updateStore])
+
+  const pickMapLocation = useCallback(
+    (lat: number, lon: number) => {
+      play('credit')
+      updateStore({
+        location: {
+          lat,
+          lon,
+          source: 'map',
+          label: `${lat.toFixed(4)}, ${lon.toFixed(4)}`,
+        },
+      })
+      setError(null)
+    },
+    [play, updateStore],
+  )
 
   const onScan = useCallback(async () => {
     play('scan')
@@ -192,6 +216,40 @@ export default function HomePage() {
 
   const creditsRemaining = snapshot?.credits_remaining ?? null
   const outOfCredits = creditsRemaining === 0
+  const hasScanned = Boolean(snapshot)
+
+  const scanControls = useMemo(
+    () => (
+      <>
+        <CreditGauge
+          remaining={creditsRemaining}
+          allowance={config.daily_allowance}
+          spentLast={spentLast}
+          compact={hasScanned}
+        />
+        <ScanButton
+          onScan={onScan}
+          loading={scanning}
+          disabled={locationSource === 'pending' || outOfCredits}
+          estimate={estimate}
+          compact={hasScanned}
+        />
+      </>
+    ),
+    [
+      creditsRemaining,
+      config.daily_allowance,
+      spentLast,
+      hasScanned,
+      onScan,
+      scanning,
+      locationSource,
+      outOfCredits,
+      estimate,
+    ],
+  )
+
+  useScanChromeSlot(scanControls, hasScanned)
 
   return (
     <>
@@ -204,7 +262,9 @@ export default function HomePage() {
                 ? 'Using your current location — click to refresh'
                 : locationSource === 'zip'
                   ? `Using ZIP${store.location?.label ? `: ${store.location.label}` : ''} — click to change`
-                  : `Using home fallback — click for ZIP or GPS`
+                  : locationSource === 'map'
+                    ? `Using map pin${store.location?.label ? `: ${store.location.label}` : ''} — click to change`
+                    : `Using home fallback — click for ZIP or GPS`
           }
         >
           <Chipish
@@ -215,12 +275,14 @@ export default function HomePage() {
                 ? 'Locating…'
                 : locationSource === 'zip'
                   ? store.location?.label?.split(',')[0] || 'ZIP'
-                  : locationSource
+                  : locationSource === 'map'
+                    ? 'MAP'
+                    : locationSource
             }
             onClick={(event) => {
               play('click')
               setError(null)
-              if (locationSource === 'home' || locationSource === 'zip') {
+              if (locationSource === 'home' || locationSource === 'zip' || locationSource === 'map') {
                 openZipPopover(event.currentTarget)
               } else {
                 geo.refresh()
@@ -274,32 +336,28 @@ export default function HomePage() {
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={2}
-          alignItems={{ xs: 'stretch', md: 'center' }}
+          alignItems={{ xs: 'stretch', md: hasScanned ? 'stretch' : 'center' }}
           mb={2}
         >
-          <Box flex={1}>
-            <Typography variant="overline" color="primary">
-              Flight wall
-            </Typography>
-            <Typography variant="h4" gutterBottom>
-              Airplanes in the air — on purpose
-            </Typography>
-            <Typography color="text.secondary" maxWidth={560}>
-              Press <strong>Scan sky</strong> to spend OpenSky credits. Data is saved in this browser
-              and shared with the Globe page.
-            </Typography>
-          </Box>
-          <CreditGauge
-            remaining={creditsRemaining}
-            allowance={config.daily_allowance}
-            spentLast={spentLast}
-          />
-          <ScanButton
-            onScan={onScan}
-            loading={scanning}
-            disabled={locationSource === 'pending' || outOfCredits}
-            estimate={estimate}
-          />
+          {hasScanned && snapshot ? (
+            <ScanStatsPanel planes={snapshot.planes} fetchedAt={snapshot.fetched_at} />
+          ) : (
+            <>
+              <Box flex={1}>
+                <Typography variant="overline" color="primary">
+                  Flight wall
+                </Typography>
+                <Typography variant="h4" gutterBottom>
+                  Airplanes in the air — on purpose
+                </Typography>
+                <Typography color="text.secondary" maxWidth={560}>
+                  Press <strong>Scan sky</strong> to spend OpenSky credits. Data is saved in this
+                  browser and shared with the Globe page.
+                </Typography>
+              </Box>
+              {scanControls}
+            </>
+          )}
         </Stack>
 
         <Stack direction="row" spacing={2} alignItems="center" mb={2} maxWidth={420}>
@@ -358,6 +416,7 @@ export default function HomePage() {
               planes={filtered}
               selectedId={selectedId}
               onSelect={selectPlane}
+              onPickLocation={pickMapLocation}
               scanning={scanning}
               flightPath={flightPath}
               pathLoading={pathLoading}

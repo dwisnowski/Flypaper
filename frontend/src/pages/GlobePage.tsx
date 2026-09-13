@@ -27,7 +27,7 @@ import { useFilteredPlanes } from '../hooks/useFilteredPlanes'
 import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useSounds } from '../hooks/useSounds'
-import { loadStore } from '../store/flypaperStore'
+import { loadStore, isPinnedLocation } from '../store/flypaperStore'
 import type { AppConfig, FlightPathResponse } from '../types'
 
 export default function GlobePage() {
@@ -69,10 +69,14 @@ export default function GlobePage() {
 
   const filtered = useFilteredPlanes(snapshot?.planes ?? [], filters)
 
-  const observerLat = store.location?.source === 'zip' ? store.location.lat : geo.lat
-  const observerLon = store.location?.source === 'zip' ? store.location.lon : geo.lon
-  const locationSource =
-    store.location?.source === 'zip' ? 'zip' : geo.source === 'pending' ? 'pending' : geo.source
+  const pinned = isPinnedLocation(store.location)
+  const observerLat = pinned ? store.location.lat : geo.lat
+  const observerLon = pinned ? store.location.lon : geo.lon
+  const locationSource = pinned
+    ? store.location.source
+    : geo.source === 'pending'
+      ? 'pending'
+      : geo.source
 
   useEffect(() => {
     void fetchConfig()
@@ -81,22 +85,24 @@ export default function GlobePage() {
   }, [])
 
   useEffect(() => {
-    if (geo.source === 'home' && geo.error && store.location?.source !== 'zip') {
+    if (geo.source === 'home' && geo.error && !isPinnedLocation(store.location)) {
       setError(`Location unavailable: ${geo.error}. Enter a ZIP code to continue.`)
       if (locationChipEl) setZipAnchor(locationChipEl)
     }
-  }, [geo.source, geo.error, locationChipEl, store.location?.source])
+  }, [geo.source, geo.error, locationChipEl, store.location])
 
   useEffect(() => {
-    if (locationSource === 'zip' || locationSource === 'geo') setError(null)
+    if (locationSource === 'zip' || locationSource === 'map' || locationSource === 'geo') {
+      setError(null)
+    }
   }, [locationSource])
 
   useEffect(() => {
-    if (store.location?.source === 'zip') return
+    if (isPinnedLocation(store.location)) return
     updateStore({
       location: { lat: geo.lat, lon: geo.lon, source: geo.source },
     })
-  }, [geo.lat, geo.lon, geo.source, store.location?.source, updateStore])
+  }, [geo.lat, geo.lon, geo.source, store.location, updateStore])
 
   useEffect(() => {
     if (locationSource === 'pending') return
@@ -188,7 +194,9 @@ export default function GlobePage() {
                 ? 'Using your current location — click to refresh'
                 : locationSource === 'zip'
                   ? `Using ZIP${store.location?.label ? `: ${store.location.label}` : ''} — click to change`
-                  : `Using home fallback — click for ZIP or GPS`
+                  : locationSource === 'map'
+                    ? `Using map pin${store.location?.label ? `: ${store.location.label}` : ''} — click to change`
+                    : `Using home fallback — click for ZIP or GPS`
           }
         >
           <Chipish
@@ -199,12 +207,14 @@ export default function GlobePage() {
                 ? 'Locating…'
                 : locationSource === 'zip'
                   ? store.location?.label?.split(',')[0] || 'ZIP'
-                  : locationSource
+                  : locationSource === 'map'
+                    ? 'MAP'
+                    : locationSource
             }
             onClick={(event) => {
               play('click')
               setError(null)
-              if (locationSource === 'home' || locationSource === 'zip') {
+              if (locationSource === 'home' || locationSource === 'zip' || locationSource === 'map') {
                 openZipPopover(event.currentTarget)
               } else {
                 geo.refresh()

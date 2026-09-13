@@ -15,9 +15,10 @@ interface Props {
   remaining: number | null
   allowance?: number
   spentLast?: number | null
+  compact?: boolean
 }
 
-export function CreditGauge({ remaining, allowance = 4000, spentLast }: Props) {
+export function CreditGauge({ remaining, allowance = 4000, spentLast, compact = false }: Props) {
   const [display, setDisplay] = useState(remaining)
   const [bump, setBump] = useState(false)
 
@@ -32,7 +33,6 @@ export function CreditGauge({ remaining, allowance = 4000, spentLast }: Props) {
     }
     if (display === remaining) return
 
-    // Animate countdown when credits drop after a scan.
     const from = display
     const to = remaining
     const steps = Math.min(12, Math.abs(from - to))
@@ -54,6 +54,57 @@ export function CreditGauge({ remaining, allowance = 4000, spentLast }: Props) {
   const value = display ?? allowance
   const pct = Math.max(0, Math.min(100, (value / allowance) * 100))
   const low = display != null && display < 200
+
+  if (compact) {
+    return (
+      <Box
+        sx={{
+          px: 1.25,
+          py: 0.65,
+          borderRadius: 2,
+          bgcolor: 'background.paper',
+          border: 1,
+          borderColor: low ? 'error.main' : 'divider',
+          minWidth: 148,
+          animation: bump ? `${tick} 0.35s ease` : undefined,
+        }}
+      >
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline" gap={1}>
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}
+          >
+            Credits
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              fontFamily: 'IBM Plex Mono, monospace',
+              fontWeight: 700,
+              color: low ? 'error.main' : 'primary.main',
+            }}
+          >
+            {display == null ? '—' : display.toLocaleString()}
+            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+              /{allowance.toLocaleString()}
+            </Typography>
+          </Typography>
+        </Stack>
+        <LinearProgress
+          variant="determinate"
+          value={display == null ? 0 : pct}
+          color={low ? 'error' : 'primary'}
+          sx={{ height: 4, borderRadius: 2, mt: 0.5 }}
+        />
+        {spentLast != null && spentLast > 0 && (
+          <Typography variant="caption" color="secondary.main" display="block" mt={0.25}>
+            −{spentLast} last
+          </Typography>
+        )}
+      </Box>
+    )
+  }
 
   return (
     <Box

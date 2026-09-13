@@ -7,8 +7,15 @@ export const STORE_EVENT = 'flypaper-store'
 export interface StoredLocation {
   lat: number
   lon: number
-  source: 'geo' | 'home' | 'zip' | 'pending'
+  source: 'geo' | 'home' | 'zip' | 'map' | 'pending'
   label?: string
+}
+
+/** ZIP or map-pin overrides live geolocation. */
+export function isPinnedLocation(
+  location: StoredLocation | null | undefined,
+): location is StoredLocation & { source: 'zip' | 'map' } {
+  return location?.source === 'zip' || location?.source === 'map'
 }
 
 export interface FlypaperStore {
