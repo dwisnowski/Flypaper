@@ -12,12 +12,15 @@ import {
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import type { FlightPathResponse, Plane } from '../types'
+import { formatDistanceKm } from '../units'
 import {
   fetchRainViewerMaps,
   latestRadarFrame,
   radarLeafletTemplate,
 } from '../weather/rainviewer'
+import { AircraftDetailsButton } from './AircraftDetailsButton'
 
 const LONG_PRESS_MS = 550
 const LONG_PRESS_MOVE_PX = 12
@@ -259,6 +262,8 @@ export function RadarMap({
   pathLoading,
   radarEnabled = false,
 }: Props) {
+  const [store] = useFlypaperStore()
+  const unit = store.distanceUnit
   const selected = useMemo(
     () => planes.find((p) => p.icao24 === selectedId) ?? null,
     [planes, selectedId],
@@ -395,7 +400,7 @@ export function RadarMap({
                 ? 'Estimated destination'
                 : 'Projected heading'}
               {flightPath.destination.distance_km != null
-                ? ` · ${flightPath.destination.distance_km} km`
+                ? ` · ${formatDistanceKm(flightPath.destination.distance_km, unit)}`
                 : ''}
             </Popup>
           </Marker>
@@ -411,24 +416,31 @@ export function RadarMap({
               eventHandlers={{ click: () => onSelect(p.icao24) }}
             >
               <Popup>
-                <strong>{p.callsign || p.registration || p.icao24}</strong>
-                <br />
-                {p.model || p.typecode || p.airframe}
-                <br />
-                {p.altitude_ft != null ? `${Math.round(p.altitude_ft).toLocaleString()} ft` : '—'}
-                {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
-                {pathLoading && p.icao24 === selectedId ? (
-                  <>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong>{p.callsign || p.registration || p.icao24}</strong>
                     <br />
-                    <em>Loading flight path…</em>
-                  </>
-                ) : null}
-                {flightPath && flightPath.icao24 === p.icao24 && flightPath.destination ? (
-                  <>
+                    {p.model || p.typecode || p.airframe}
                     <br />
-                    → {flightPath.destination.label}
-                  </>
-                ) : null}
+                    {p.altitude_ft != null
+                      ? `${Math.round(p.altitude_ft).toLocaleString()} ft`
+                      : '—'}
+                    {p.distance_km != null ? ` · ${formatDistanceKm(p.distance_km, unit)}` : ''}
+                    {pathLoading && p.icao24 === selectedId ? (
+                      <>
+                        <br />
+                        <em>Loading flight path…</em>
+                      </>
+                    ) : null}
+                    {flightPath && flightPath.icao24 === p.icao24 && flightPath.destination ? (
+                      <>
+                        <br />
+                        → {flightPath.destination.label}
+                      </>
+                    ) : null}
+                  </div>
+                  <AircraftDetailsButton plane={p} />
+                </div>
               </Popup>
             </Marker>
           )

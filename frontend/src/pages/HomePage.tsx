@@ -11,7 +11,6 @@ import Button from '@mui/material/Button'
 import Container from '@mui/material/Container'
 import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
-import Slider from '@mui/material/Slider'
 import Stack from '@mui/material/Stack'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
@@ -26,6 +25,7 @@ import { CreditGauge } from '../components/CreditGauge'
 import { FilterDrawer } from '../components/FilterDrawer'
 import { PlaneList } from '../components/PlaneList'
 import { RadarMap } from '../components/RadarMap'
+import { RadiusSlider } from '../components/RadiusSlider'
 import { ScanButton } from '../components/ScanButton'
 import { useScanChromeSlot } from '../components/ScanChromeContext'
 import { ScanStatsPanel } from '../components/ScanStatsPanel'
@@ -396,19 +396,7 @@ export default function HomePage() {
           )}
         </Stack>
 
-        <Stack direction="row" spacing={2} alignItems="center" mb={2} maxWidth={420}>
-          <Typography variant="body2" sx={{ minWidth: 110, fontFamily: 'IBM Plex Mono, monospace' }}>
-            Radius {radiusKm} km
-          </Typography>
-          <Slider
-            value={radiusKm}
-            min={50}
-            max={400}
-            step={10}
-            onChange={(_, v) => updateStore({ radiusKm: v as number })}
-            valueLabelDisplay="auto"
-          />
-        </Stack>
+        <RadiusSlider />
 
         {error && (
           <Alert
@@ -494,6 +482,7 @@ export default function HomePage() {
         filters={filters}
         onChange={(next) => updateStore({ filters: next })}
         maxDistance={radiusKm}
+        distanceUnit={store.distanceUnit}
       />
       <ZipCodePopover
         open={zipOpen}

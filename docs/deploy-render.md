@@ -47,6 +47,22 @@ Render injects `PORT`; the image listens on `0.0.0.0:$PORT`.
 
 Optional: after you know the public URL, set `CORS_ORIGINS` to include `https://<service-name>.onrender.com` (harmless with same-origin hosting).
 
+## OpenSky from cloud hosts
+
+`POST /api/scan` calls OpenSky **from the Render server** (not the browser). OpenSky
+[may block AWS and other hyperscaler IPs](https://openskynetwork.github.io/opensky-api/rest.html)
+due to abuse; Render egress often sits in those ranges.
+
+Symptoms: browser shows **502** on `/api/scan`, response body like
+`OpenSky request failed: timed out` (or the clearer timeout message from newer builds).
+`/api/health` still returns 200. The same scan works on your laptop.
+
+Workarounds:
+
+- Run locally (`make run`) or on a VPS whose egress is not blocked.
+- Put OpenSky credentials in Render env vars anyway (required when the host *can* reach OpenSky; browser-saved creds also work).
+- Do not expect OpenSky to whitelist an “AI dashboard” on hyperscaler IPs.
+
 ## 5. Local Docker smoke test
 
 ```bash

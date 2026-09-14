@@ -126,6 +126,15 @@ def scan(body: ScanRequest, request: Request) -> ScanResponse:
             status_code=502,
             detail=f"OpenSky error: {exc.response.status_code}",
         ) from exc
+    except httpx.TimeoutException as exc:
+        logger.exception("OpenSky request timed out")
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "OpenSky timed out from this host. OpenSky often blocks AWS and other "
+                "cloud egress IPs — local or non-hyperscaler hosting usually works."
+            ),
+        ) from exc
     except httpx.HTTPError as exc:
         logger.exception("OpenSky request failed")
         raise HTTPException(status_code=502, detail=f"OpenSky request failed: {exc}") from exc
@@ -283,6 +292,15 @@ def flight_path(icao24: str, body: FlightPathRequest, request: Request) -> Fligh
         raise HTTPException(
             status_code=502,
             detail=f"OpenSky track error: {exc.response.status_code}",
+        ) from exc
+    except httpx.TimeoutException as exc:
+        logger.exception("OpenSky track timed out")
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "OpenSky timed out from this host. OpenSky often blocks AWS and other "
+                "cloud egress IPs — local or non-hyperscaler hosting usually works."
+            ),
         ) from exc
     except httpx.HTTPError as exc:
         logger.exception("OpenSky track request failed")

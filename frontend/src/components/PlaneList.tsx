@@ -5,7 +5,10 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import type { Plane } from '../types'
+import { formatDistanceKm } from '../units'
+import { AircraftDetailsButton } from './AircraftDetailsButton'
 
 interface Props {
   planes: Plane[]
@@ -14,6 +17,9 @@ interface Props {
 }
 
 export function PlaneList({ planes, selectedId, onSelect }: Props) {
+  const [store] = useFlypaperStore()
+  const unit = store.distanceUnit
+
   if (!planes.length) {
     return (
       <Box p={2}>
@@ -31,11 +37,11 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
           key={p.icao24}
           selected={p.icao24 === selectedId}
           onClick={() => onSelect(p.icao24)}
-          sx={{ alignItems: 'flex-start', py: 1.25 }}
+          sx={{ alignItems: 'flex-start', py: 1.25, gap: 0.5 }}
         >
           <ListItemText
             primary={
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Typography fontWeight={700} sx={{ fontFamily: 'IBM Plex Mono, monospace' }}>
                   {p.callsign || p.registration || p.icao24}
                 </Typography>
@@ -45,7 +51,7 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
             }
             secondary={
               <Typography variant="caption" color="text.secondary" component="span">
-                {p.distance_km != null ? `${p.distance_km.toFixed(1)} km · ` : ''}
+                {p.distance_km != null ? `${formatDistanceKm(p.distance_km, unit)} · ` : ''}
                 {p.altitude_ft != null ? `${Math.round(p.altitude_ft).toLocaleString()} ft · ` : ''}
                 {p.speed_kts != null ? `${Math.round(p.speed_kts)} kts · ` : ''}
                 {p.origin_country || '—'}
@@ -53,6 +59,7 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
               </Typography>
             }
           />
+          <AircraftDetailsButton plane={p} />
         </ListItemButton>
       ))}
     </List>
