@@ -14,6 +14,7 @@ import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import { createAppTheme } from '../theme'
 import { OpenSkyCredentialsButton } from './OpenSkyCredentialsButton'
 import { QrAccessButton } from './QrAccessButton'
+import { SettingsButton } from './SettingsButton'
 import { fetchConfig } from '../api'
 import { ScanChromeProvider, useScanChrome } from './ScanChromeContext'
 
@@ -82,6 +83,7 @@ function ShellBar() {
             credits {credits == null ? '—' : credits.toLocaleString()}
           </Typography>
         )}
+        <SettingsButton />
         <OpenSkyCredentialsButton serverConfigured={serverConfigured} />
         <QrAccessButton />
       </Toolbar>

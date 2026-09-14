@@ -12,6 +12,8 @@ import Switch from '@mui/material/Switch'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import type { Airframe, ClimbState, FilterState, Usage } from '../types'
+import type { DistanceUnit } from '../units'
+import { RADIUS_SLIDER, fromKm, toKm, unitLabel } from '../units'
 
 const USAGES: Usage[] = ['military', 'commercial', 'personal', 'unknown']
 const AIRFRAMES: Airframe[] = ['jet', 'turboprop', 'piston', 'heli', 'uav', 'other']
@@ -23,13 +25,29 @@ interface Props {
   filters: FilterState
   onChange: (next: FilterState) => void
   maxDistance: number
+  distanceUnit: DistanceUnit
 }
 
 function toggleIn<T extends string>(list: T[], value: T): T[] {
   return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
 }
 
-export function FilterDrawer({ open, onClose, filters, onChange, maxDistance }: Props) {
+export function FilterDrawer({
+  open,
+  onClose,
+  filters,
+  onChange,
+  maxDistance,
+  distanceUnit,
+}: Props) {
+  const { min, step } = RADIUS_SLIDER[distanceUnit]
+  const maxDisplay = Math.max(fromKm(maxDistance, distanceUnit), min)
+  const rawValue = fromKm(filters.distanceMax, distanceUnit)
+  const valueDisplay = Math.min(
+    Math.max(Math.round(rawValue / step) * step, min),
+    maxDisplay,
+  )
+
   return (
     <Drawer anchor="right" open={open} onClose={onClose} PaperProps={{ sx: { width: 340, p: 2 } }}>
       <Stack direction="row" alignItems="center" spacing={1} mb={1}>
@@ -99,21 +117,24 @@ export function FilterDrawer({ open, onClose, filters, onChange, maxDistance }: 
           step={500}
           valueLabelDisplay="auto"
           onChange={(_, v) => {
-            const [min, max] = v as number[]
-            onChange({ ...filters, altitudeMin: min, altitudeMax: max })
+            const [minAlt, maxAlt] = v as number[]
+            onChange({ ...filters, altitudeMin: minAlt, altitudeMax: maxAlt })
           }}
         />
       </Box>
 
-      <Typography variant="overline">Max distance (km)</Typography>
+      <Typography variant="overline">Max distance ({unitLabel(distanceUnit)})</Typography>
       <Box px={1} mb={2}>
         <Slider
-          value={Math.min(filters.distanceMax, maxDistance)}
-          min={10}
-          max={Math.max(maxDistance, 50)}
-          step={10}
+          value={valueDisplay}
+          min={min}
+          max={maxDisplay}
+          step={step}
           valueLabelDisplay="auto"
-          onChange={(_, v) => onChange({ ...filters, distanceMax: v as number })}
+          valueLabelFormat={(v) => `${Math.round(v)} ${unitLabel(distanceUnit)}`}
+          onChange={(_, v) =>
+            onChange({ ...filters, distanceMax: toKm(v as number, distanceUnit) })
+          }
         />
       </Box>
 

@@ -12,7 +12,9 @@ import {
 } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import type { FlightPathResponse, Plane } from '../types'
+import { formatDistanceKm } from '../units'
 import {
   fetchRainViewerMaps,
   latestRadarFrame,
@@ -260,6 +262,8 @@ export function RadarMap({
   pathLoading,
   radarEnabled = false,
 }: Props) {
+  const [store] = useFlypaperStore()
+  const unit = store.distanceUnit
   const selected = useMemo(
     () => planes.find((p) => p.icao24 === selectedId) ?? null,
     [planes, selectedId],
@@ -396,7 +400,7 @@ export function RadarMap({
                 ? 'Estimated destination'
                 : 'Projected heading'}
               {flightPath.destination.distance_km != null
-                ? ` · ${flightPath.destination.distance_km} km`
+                ? ` · ${formatDistanceKm(flightPath.destination.distance_km, unit)}`
                 : ''}
             </Popup>
           </Marker>
@@ -421,7 +425,7 @@ export function RadarMap({
                     {p.altitude_ft != null
                       ? `${Math.round(p.altitude_ft).toLocaleString()} ft`
                       : '—'}
-                    {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
+                    {p.distance_km != null ? ` · ${formatDistanceKm(p.distance_km, unit)}` : ''}
                     {pathLoading && p.icao24 === selectedId ? (
                       <>
                         <br />

@@ -5,7 +5,9 @@ import ListItemButton from '@mui/material/ListItemButton'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import type { Plane } from '../types'
+import { formatDistanceKm } from '../units'
 import { AircraftDetailsButton } from './AircraftDetailsButton'
 
 interface Props {
@@ -15,6 +17,9 @@ interface Props {
 }
 
 export function PlaneList({ planes, selectedId, onSelect }: Props) {
+  const [store] = useFlypaperStore()
+  const unit = store.distanceUnit
+
   if (!planes.length) {
     return (
       <Box p={2}>
@@ -46,7 +51,7 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
             }
             secondary={
               <Typography variant="caption" color="text.secondary" component="span">
-                {p.distance_km != null ? `${p.distance_km.toFixed(1)} km · ` : ''}
+                {p.distance_km != null ? `${formatDistanceKm(p.distance_km, unit)} · ` : ''}
                 {p.altitude_ft != null ? `${Math.round(p.altitude_ft).toLocaleString()} ft · ` : ''}
                 {p.speed_kts != null ? `${Math.round(p.speed_kts)} kts · ` : ''}
                 {p.origin_country || '—'}

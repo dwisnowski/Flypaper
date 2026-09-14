@@ -14,4 +14,4 @@ The Phase 1 flight wall at `/` — a dark Leaflet map of aircraft near you.
 
 ![Map flight wall with stats, map, and aircraft list](../images/map-flight-wall.png)
 
-Basemap tiles are CARTO/OSM dark style. Zoom, pan, and the radius slider control how you inspect the last scan (filters never re-spend credits).
+Basemap tiles are CARTO/OSM dark style. Zoom, pan, and the radius slider (mi/km via [Settings](settings.md)) control how you inspect the last scan (filters never re-spend credits).

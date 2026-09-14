@@ -8,7 +8,7 @@ Open the filter drawer (funnel icon) to refine:
 
 - Usage and airframe
 - Climb state
-- Altitude range, minimum speed, max distance
+- Altitude range, minimum speed, max distance (mi/km from [Settings](settings.md))
 - Airborne-only
 - Callsign / registration / ICAO text search
 - Origin country

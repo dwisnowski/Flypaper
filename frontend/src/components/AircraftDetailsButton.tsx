@@ -5,7 +5,9 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import { useState, type MouseEvent, type ReactNode } from 'react'
+import { useFlypaperStore } from '../hooks/useFlypaperStore'
 import type { Plane } from '../types'
+import { formatDistanceKm } from '../units'
 
 interface Props {
   plane: Plane
@@ -59,6 +61,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function AircraftDetailsButton({ plane, size = 'small' }: Props) {
+  const [store] = useFlypaperStore()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const open = Boolean(anchor)
 
@@ -163,9 +166,7 @@ export function AircraftDetailsButton({ plane, size = 'small' }: Props) {
             <DetailRow label="Climb" value={fmt(plane.climb_state)} />
             <DetailRow
               label="Distance"
-              value={
-                plane.distance_km != null ? `${plane.distance_km.toFixed(1)} km` : '—'
-              }
+              value={formatDistanceKm(plane.distance_km, store.distanceUnit)}
             />
             <DetailRow label="On ground" value={fmt(plane.on_ground)} />
             <DetailRow

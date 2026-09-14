@@ -1,5 +1,7 @@
 import type { FilterState, FlightPathResponse, ScanResponse } from '../types'
 import { DEFAULT_FILTERS } from '../types'
+import type { DistanceUnit } from '../units'
+import { miToKm } from '../units'
 
 export const STORE_KEY = 'flypaper.v1'
 export const STORE_EVENT = 'flypaper-store'
@@ -26,7 +28,10 @@ export interface FlypaperStore {
   theme: 'light' | 'dark'
   muted: boolean
   location: StoredLocation | null
+  /** Scan / filter distances are stored in km for the API. */
   radiusKm: number
+  /** UI preference for radius and distance labels. */
+  distanceUnit: DistanceUnit
   selectedId: string | null
   radarEnabled: boolean
   updatedAt: number
@@ -45,7 +50,8 @@ export const DEFAULT_STORE: FlypaperStore = {
   theme: 'dark',
   muted: false,
   location: null,
-  radiusKm: 150,
+  radiusKm: miToKm(100),
+  distanceUnit: 'mi',
   selectedId: null,
   radarEnabled: false,
   updatedAt: 0,
@@ -69,10 +75,15 @@ export function loadStore(): FlypaperStore {
       return base
     }
     const parsed = JSON.parse(raw) as Partial<FlypaperStore>
+    const distanceUnit: DistanceUnit =
+      parsed.distanceUnit === 'km' || parsed.distanceUnit === 'mi'
+        ? parsed.distanceUnit
+        : DEFAULT_STORE.distanceUnit
     return {
       ...DEFAULT_STORE,
       ...parsed,
       version: 1,
+      distanceUnit,
       filters: { ...DEFAULT_FILTERS, ...(parsed.filters ?? {}) },
       pathCache: parsed.pathCache ?? {},
     }
