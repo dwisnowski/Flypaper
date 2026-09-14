@@ -6,6 +6,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import type { Plane } from '../types'
+import { AircraftDetailsButton } from './AircraftDetailsButton'
 
 interface Props {
   planes: Plane[]
@@ -31,11 +32,11 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
           key={p.icao24}
           selected={p.icao24 === selectedId}
           onClick={() => onSelect(p.icao24)}
-          sx={{ alignItems: 'flex-start', py: 1.25 }}
+          sx={{ alignItems: 'flex-start', py: 1.25, gap: 0.5 }}
         >
           <ListItemText
             primary={
-              <Stack direction="row" spacing={1} alignItems="center">
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Typography fontWeight={700} sx={{ fontFamily: 'IBM Plex Mono, monospace' }}>
                   {p.callsign || p.registration || p.icao24}
                 </Typography>
@@ -53,6 +54,7 @@ export function PlaneList({ planes, selectedId, onSelect }: Props) {
               </Typography>
             }
           />
+          <AircraftDetailsButton plane={p} />
         </ListItemButton>
       ))}
     </List>

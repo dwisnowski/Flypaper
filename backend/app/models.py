@@ -36,7 +36,9 @@ class Plane(BaseModel):
     airframe: str = "other"  # jet | turboprop | piston | heli | uav | other
     typecode: str | None = None
     model: str | None = None
+    manufacturer: str | None = None
     operator: str | None = None
+    owner: str | None = None
     registration: str | None = None
 
 

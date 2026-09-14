@@ -18,6 +18,7 @@ import {
   latestRadarFrame,
   radarLeafletTemplate,
 } from '../weather/rainviewer'
+import { AircraftDetailsButton } from './AircraftDetailsButton'
 
 const LONG_PRESS_MS = 550
 const LONG_PRESS_MOVE_PX = 12
@@ -411,24 +412,31 @@ export function RadarMap({
               eventHandlers={{ click: () => onSelect(p.icao24) }}
             >
               <Popup>
-                <strong>{p.callsign || p.registration || p.icao24}</strong>
-                <br />
-                {p.model || p.typecode || p.airframe}
-                <br />
-                {p.altitude_ft != null ? `${Math.round(p.altitude_ft).toLocaleString()} ft` : '—'}
-                {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
-                {pathLoading && p.icao24 === selectedId ? (
-                  <>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <strong>{p.callsign || p.registration || p.icao24}</strong>
                     <br />
-                    <em>Loading flight path…</em>
-                  </>
-                ) : null}
-                {flightPath && flightPath.icao24 === p.icao24 && flightPath.destination ? (
-                  <>
+                    {p.model || p.typecode || p.airframe}
                     <br />
-                    → {flightPath.destination.label}
-                  </>
-                ) : null}
+                    {p.altitude_ft != null
+                      ? `${Math.round(p.altitude_ft).toLocaleString()} ft`
+                      : '—'}
+                    {p.distance_km != null ? ` · ${p.distance_km.toFixed(1)} km` : ''}
+                    {pathLoading && p.icao24 === selectedId ? (
+                      <>
+                        <br />
+                        <em>Loading flight path…</em>
+                      </>
+                    ) : null}
+                    {flightPath && flightPath.icao24 === p.icao24 && flightPath.destination ? (
+                      <>
+                        <br />
+                        → {flightPath.destination.label}
+                      </>
+                    ) : null}
+                  </div>
+                  <AircraftDetailsButton plane={p} />
+                </div>
               </Popup>
             </Marker>
           )

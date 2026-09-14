@@ -4,7 +4,7 @@ Scrollable list of aircraft in the current filtered snapshot on both Map and Glo
 
 ## Overview
 
-Each row shows callsign (or registration / ICAO24), airframe and usage chips, distance, altitude, speed, and country. Click a row to select that aircraft (same selection as the map/globe markers).
+Each row shows callsign (or registration / ICAO24), airframe and usage chips, distance, altitude, speed, and country. Click a row to select that aircraft (same selection as the map/globe markers). An info button opens a popover with full identity, airframe, operator, and flight fields (including OpenSky aircraft-DB enrichment when available).
 
 ## Screenshot
 

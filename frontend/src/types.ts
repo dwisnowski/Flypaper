@@ -25,7 +25,9 @@ export interface Plane {
   airframe: Airframe
   typecode: string | null
   model: string | null
+  manufacturer: string | null
   operator: string | null
+  owner: string | null
   registration: string | null
 }
 

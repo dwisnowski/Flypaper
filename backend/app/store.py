@@ -77,6 +77,7 @@ def enrich_planes(
         meta = enricher.lookup(raw["icao24"]) if enricher else None
         typecode = meta.typecode if meta else None
         model = meta.model if meta else None
+        manufacturer = meta.manufacturer if meta else None
         operator = meta.operator if meta else None
         registration = meta.registration if meta else None
         owner = meta.owner if meta else None
@@ -111,7 +112,9 @@ def enrich_planes(
                 airframe=airframe,
                 typecode=typecode,
                 model=model,
+                manufacturer=manufacturer,
                 operator=operator,
+                owner=owner,
                 registration=registration,
             )
         )
